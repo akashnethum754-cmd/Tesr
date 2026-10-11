@@ -1,0 +1,34 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Admin</title><link rel="stylesheet" href="style.css"></head><body>
+<div id="nav"></div><main>
+<h1>Admin</h1>
+<div class="card"><h2>API stats</h2><div class="grid" id="st"></div><h2 style="margin-top:14px">Last 7 days</h2><div id="d7"></div><h2 style="margin-top:14px">Top endpoints (7d)</h2><table id="top"></table></div>
+<div class="card"><h2>Accounts</h2><div class="row"><input id="q" placeholder="Email, name, UID or Telegram id" style="flex:1"><button id="s">Search</button></div><div id="us"></div>
+<div class="row sp" style="margin-top:10px"><button class="alt" id="pv">Prev</button><span id="pg" class="mut"></span><button class="alt" id="nx">Next</button></div></div>
+</main>
+<script src="common.js"></script>
+<script>
+let page=1,total=0;
+(async()=>{const me=await getMe();nav(me);
+ if(!me?.isAdmin){document.querySelector('main').innerHTML='<h1>Admins only</h1><a class="btn" href="/dashboard.html">Sign in</a>';return}
+ stats();users()})();
+async function stats(){const {stats:s}=await j('/admin/stats');
+ const it=[['Users',s.users],['New today',s.newToday],['Active now',s.activeUsers],['Banned',s.banned],['Total requests',s.totalRequests],['Today',s.todayRequests],['Success %',s.successRate],['Avg ms',s.avgLatency],['Coins out there',s.totalCoins],['RAM MB',s.ramMB]];
+ $('#st').innerHTML=it.map(([a,b])=>`<div class="stat"><small>${a}</small><b>${fmt(b)}</b></div>`).join('');
+ const mx=Math.max(1,...s.last7.map(d=>d.total));
+ $('#d7').innerHTML=s.last7.map(d=>`<div class="row" style="margin:3px 0"><span class="mono mut" style="width:44px;font-size:12px">${d.day.slice(5)}</span><div class="bar" style="flex:1;margin:0"><i style="width:${d.total/mx*100}%"></i></div><span style="width:50px;text-align:right">${fmt(d.total)}</span></div>`).join('');
+ $('#top').innerHTML='<tr><th>Endpoint</th><th>Hits</th><th>ms</th><th>Err</th></tr>'+(s.topEndpoints.map(e=>`<tr><td>${esc(e.endpoint)}</td><td>${fmt(e.count)}</td><td>${e.avgMs}</td><td class="${e.errors?'bad':''}">${e.errors}</td></tr>`).join('')||'<tr><td class="mut" colspan=4>No data yet</td></tr>')}
+async function users(){const r=await j(`/admin/users?page=${page}&q=${encodeURIComponent($('#q').value)}`);total=r.total;
+ $('#pg').textContent=`Page ${page} / ${Math.max(1,Math.ceil(total/20))} · ${total} users`;
+ $('#us').innerHTML=r.users.map(u=>`<div class="card" style="margin:10px 0"><div class="row sp"><b>${esc(u.name)}</b><span class="pill ${u.status==='ACTIVE'?'ok':'bad'}">${u.status}</span></div>
+ <div class="mut" style="font-size:13px">${esc(u.email)}${u.telegramId?' · TG '+esc(u.telegramId):''}</div>
+ <div style="margin:6px 0;font-size:13px">Quota ${fmt(u.used)}/${fmt(u.plan.quota)} · <span class="coin">${fmt(u.coins)} coins</span> · ${fmt(u.totalRequests)} total · ${u.plan.rateLimit}/min · ${esc(u.plan.name)}</div>
+ <div class="row"><button onclick="coins('${u._id}')">+ Coins</button><button class="alt" onclick="plan('${u._id}')">Plan</button><button class="alt" onclick="reset('${u._id}')">Reset used</button>
+ <button class="${u.status==='ACTIVE'?'red':'alt'}" onclick="stat('${u._id}','${u.status==='ACTIVE'?'BANNED':'ACTIVE'}')">${u.status==='ACTIVE'?'Ban':'Unban'}</button></div></div>`).join('')||'<p class="mut">No users found.</p>'}
+$('#s').onclick=()=>{page=1;users()};$('#q').onkeydown=e=>e.key==='Enter'&&$('#s').click();
+$('#pv').onclick=()=>{if(page>1){page--;users()}};$('#nx').onclick=()=>{if(page*20<total){page++;users()}};
+async function coins(id){const a=prompt('Coins to add (negative to remove):');if(!a)return;const r=await post(`/admin/users/${id}/coins`,{amount:a});alert(r.status?'New balance: '+r.coins:r.message);users();stats()}
+async function stat(id,s){await post(`/admin/users/${id}/status`,{status:s});users();stats()}
+async function reset(id){if(confirm('Reset used requests to 0?')){await post(`/admin/users/${id}/plan`,{resetUsed:true});users()}}
+async function plan(id){const name=prompt('Plan name (blank = keep):');const quota=prompt('Request quota (blank = keep):');const rl=prompt('Rate limit per min (blank = keep):');const days=prompt('Valid days from now (0 = lifetime, blank = keep):');
+ const b={};if(name)b.name=name;if(quota)b.quota=+quota;if(rl)b.rateLimit=+rl;if(days!==null&&days!=='')b.days=+days;await post(`/admin/users/${id}/plan`,b);users()}
+</script></body></html>

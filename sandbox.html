@@ -1,0 +1,32 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sandbox</title><link rel="stylesheet" href="style.css"></head><body>
+<div id="nav"></div><main>
+<h1>API sandbox</h1><input id="q" placeholder="Search endpoints…"><div id="list"></div>
+<div id="test" style="display:none">
+ <div class="card"><div class="row sp"><h2 id="tn"></h2><button class="alt" id="back">Back</button></div><p class="mut" id="td"></p><div id="ps"></div>
+  <div class="key mono" id="url" style="margin:10px 0"></div>
+  <div class="row"><button class="alt" id="cu">Copy API URL</button><button id="go">Send request</button></div></div>
+ <div class="card"><div class="row sp"><div class="tabs row"><button data-t="curl">cURL</button><button class="alt" data-t="node">Node.js</button><button class="alt" data-t="py">Python</button></div><button class="alt" id="cc">Copy</button></div><pre id="code"></pre></div>
+ <div class="card"><div class="row sp"><h2>Response</h2><span id="meta" class="mono mut"></span></div><pre id="out">Press “Send request”.</pre></div>
+</div></main>
+<script src="common.js"></script>
+<script>
+let me,eps=[],cur,tab='curl';
+(async()=>{me=await getMe();nav(me);
+ if(!me){$('main').insertAdjacentHTML('beforeend','<div class="card"><p>Sign in to use your API key in the sandbox.</p><a class="btn" href="/dashboard.html">Sign in</a></div>');}
+ eps=(await j('/api/endpoints')).endpoints;render()})();
+function render(){const f=$('#q').value.toLowerCase();
+ $('#list').innerHTML=eps.map((e,i)=>({e,i})).filter(({e})=>(e.name+e.description+e.path).toLowerCase().includes(f)).map(({e,i})=>`<div class="card ep" onclick="open_(${i})"><div class="row sp"><span class="pill mono">GET</span><span class="mut">${esc(e.category)}</span></div><h2 style="margin-top:8px">${esc(e.name)}</h2><div class="mut">${esc(e.description)}</div></div>`).join('')||'<p class="mut">No endpoints found.</p>'}
+$('#q').oninput=render;
+function open_(i){cur=eps[i];$('#list').style.display='none';$('#q').style.display='none';$('#test').style.display='block';
+ $('#tn').textContent=cur.name;$('#td').textContent=cur.description;
+ $('#ps').innerHTML=cur.params.map(p=>`<div style="margin:8px 0"><b class="mono">${esc(p.name)}</b> ${p.required?'<span class="pill bad">required</span>':''}<div class="mut" style="font-size:12px">${esc(p.description||'')}</div><input data-p="${esc(p.name)}"></div>`).join('')||'<p class="mut">No parameters.</p>';
+ document.querySelectorAll('[data-p]').forEach(x=>x.oninput=upd);upd()}
+$('#back').onclick=()=>{$('#list').style.display='';$('#q').style.display='';$('#test').style.display='none'};
+function url(mask){const p=new URLSearchParams();document.querySelectorAll('[data-p]').forEach(x=>x.value&&p.set(x.dataset.p,x.value));p.set('api_key',mask?'YOUR_API_KEY':(me?.apiKey||'YOUR_API_KEY'));return location.origin+cur.path+'?'+p}
+function code(){const u=url(true);return tab==='curl'?`curl -X GET "${u}"`:tab==='node'?`const res = await fetch("${u}");\nconsole.log(await res.json());`:`import requests\nprint(requests.get("${u}").json())`}
+function upd(){$('#url').textContent=url(true);$('#code').textContent=code()}
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{tab=b.dataset.t;document.querySelectorAll('.tabs button').forEach(x=>x.className=x===b?'':'alt');upd()});
+$('#cu').onclick=e=>copy(url(true),e.target);$('#cc').onclick=e=>copy($('#code').textContent,e.target);
+$('#go').onclick=async()=>{if(!me)return alert('Sign in first');$('#out').textContent='Loading…';const t=Date.now();
+ try{const r=await fetch(url(false));const d=await r.json();$('#meta').innerHTML=`${Date.now()-t}ms · <span class="${r.ok?'ok':'bad'}">${r.status}</span>`;$('#out').textContent=JSON.stringify(d,null,2)}catch(e){$('#out').textContent='Request failed: '+e.message}};
+</script></body></html>

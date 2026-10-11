@@ -1,0 +1,16 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>API Hub</title><link rel="stylesheet" href="style.css"></head><body>
+<div id="nav"></div>
+<main>
+  <h1>One REST API for all your apps</h1>
+  <p class="mut">Connect websites, Telegram bots and media players to a single API. Get a key, test endpoints in the sandbox, ship.</p>
+  <div class="row"><a class="btn" href="/dashboard.html">Get your API key</a><a class="btn alt" href="/sandbox.html" style="background:#1a1536;color:#ece9ff">Open sandbox</a></div>
+  <div class="card"><div class="row sp"><h2>Live system metrics</h2><span class="pill ok">● live</span></div><div class="grid" id="st"></div></div>
+</main>
+<script src="common.js"></script>
+<script>
+getMe().then(nav);
+async function load(){const s=await j('/api/stats');
+const items=[['All users',s.users],['Active now',s.activeUsers],['Active API keys',s.activeKeys],['Total requests',s.totalRequests],["Today's requests",s.todayRequests],['Success rate',s.successRate+'%'],['Avg latency',s.avgLatency+'ms'],['Server RAM',s.ramMB+'MB']];
+$('#st').innerHTML=items.map(([a,b])=>`<div class="stat"><small>${a}</small><b>${typeof b==='number'?fmt(b):b}</b></div>`).join('')}
+load();setInterval(load,10000);
+</script></body></html>
